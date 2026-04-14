@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NAUNCE | Sign Up</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;700&family=JetBrains+Mono:wght@400;500&family=Syne:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="login-page">
+    <canvas id="liveBg" class="live-bg-canvas"></canvas>
+    <main class="auth-wrap">
+      <section class="auth-card fade-in">
+        <div class="brand-lockup auth-brand">
+          <div class="brand">NAUNCE</div>
+          <p class="brand-byline">by SYED ARIF</p>
+        </div>
+        <p class="tagline">Communication Beyond Translation</p>
+        <h1>Create Your Account</h1>
+        <p class="hero-copy">Start tracking culturally adaptive communication in minutes.</p>
+
+        <form id="signupForm" class="auth-form">
+          <label for="signupEmail">Email</label>
+          <input id="signupEmail" type="email" required placeholder="you@example.com" />
+
+          <label for="signupPassword">Password</label>
+          <input id="signupPassword" type="password" required minlength="6" placeholder="Minimum 6 characters" />
+
+          <label for="signupLanguage">Primary Language</label>
+          <select id="signupLanguage">
+            <option>English</option>
+            <option>Urdu</option>
+            <option>Telugu</option>
+          </select>
+
+          <button class="btn-primary" type="submit">Sign Up</button>
+          <p id="authMessage" class="auth-message"></p>
+        </form>
+
+        <p class="auth-switch">
+          Already have an account? <a href="./index.html">Log in</a>
+        </p>
+      </section>
+    </main>
+
+    <script src="./auth.js"></script>
+    <script>
+    (function () {
+      const canvas = document.getElementById('liveBg');
+      const ctx = canvas.getContext('2d');
+      function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+      resize();
+      window.addEventListener('resize', resize);
+      const PALETTE = [
+        'rgba(143,31,36,', 'rgba(180,55,62,', 'rgba(220,100,108,',
+        'rgba(255,200,205,', 'rgba(255,240,242,', 'rgba(255,255,255,',
+      ];
+      const orbs = Array.from({ length: 6 }, (_, i) => ({
+        x: Math.random() * innerWidth, y: Math.random() * innerHeight,
+        r: 180 + Math.random() * 220, vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35, color: PALETTE[i % PALETTE.length],
+        opacity: 0.10 + Math.random() * 0.10, phase: Math.random() * Math.PI * 2,
+        speed: 0.004 + Math.random() * 0.004,
+      }));
+      const waves = Array.from({ length: 4 }, (_, i) => ({
+        amplitude: 40 + i * 18, frequency: 0.004 + i * 0.002,
+        speed: 0.0006 + i * 0.0003, yBase: 0.25 + i * 0.18,
+        color: PALETTE[i % PALETTE.length], opacity: 0.05 + i * 0.015,
+        phase: Math.random() * Math.PI * 2, lineWidth: 60 + i * 40,
+      }));
+      function createParticle() {
+        return { x: Math.random() * canvas.width, y: canvas.height + 10,
+          vx: (Math.random() - 0.5) * 0.55, vy: -0.4 - Math.random() * 0.5,
+          size: 1 + Math.random() * 2.5, color: PALETTE[Math.floor(Math.random() * PALETTE.length)],
+          alpha: 0.3 + Math.random() * 0.5, life: 1, decay: 0.002 + Math.random() * 0.003 };
+      }
+      const particles = Array.from({ length: 55 }, createParticle);
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const bg = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        bg.addColorStop(0, '#ffffff'); bg.addColorStop(0.5, '#fff3f5'); bg.addColorStop(1, '#ffe6ea');
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        waves.forEach(w => {
+          w.phase += w.speed; ctx.beginPath(); ctx.lineWidth = w.lineWidth;
+          ctx.strokeStyle = w.color + w.opacity + ')';
+          for (let x = 0; x <= canvas.width; x += 3) {
+            const y = canvas.height * w.yBase + Math.sin(x * w.frequency + w.phase) * w.amplitude
+                    + Math.sin(x * w.frequency * 0.5 + w.phase * 1.3) * (w.amplitude * 0.4);
+            x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          } ctx.stroke();
+        });
+        orbs.forEach(o => {
+          o.phase += o.speed; o.x += o.vx; o.y += o.vy;
+          if (o.x < -o.r) o.x = canvas.width + o.r; if (o.x > canvas.width + o.r) o.x = -o.r;
+          if (o.y < -o.r) o.y = canvas.height + o.r; if (o.y > canvas.height + o.r) o.y = -o.r;
+          const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.r);
+          g.addColorStop(0, o.color + o.opacity + ')'); g.addColorStop(1, o.color + '0)');
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2); ctx.fill();
+        });
+        particles.forEach((p, i) => {
+          p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+          if (p.life <= 0 || p.y < -10) { particles[i] = createParticle(); return; }
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fillStyle = p.color + (p.alpha * p.life) + ')'; ctx.fill();
+        });
+        requestAnimationFrame(animate);
+      }
+      animate();
+    })();
+    </script>
+  </body>
+</html>

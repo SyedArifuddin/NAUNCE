@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NAUNCE | Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;700&family=JetBrains+Mono:wght@400;500&family=Syne:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <!-- Live animated background -->
+    <canvas id="liveBg" class="live-bg-canvas"></canvas>
+    <header class="nav fade-in">
+      <div class="brand-lockup">
+        <div class="brand">NAUNCE</div>
+        <p class="brand-byline">by SYED ARIF</p>
+      </div>
+      <nav>
+        <a href="#vision">Vision</a>
+        <a href="#analyze">Analyze</a>
+        <a href="#dashboard">Dashboard</a>
+        <a href="#architecture">Architecture</a>
+        <a id="logoutBtn" href="#">Logout</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero fade-in">
+        <p class="tagline">Communication Beyond Translation</p>
+        <h1>“Words translate meaning, but culture translates intent.”</h1>
+        <button id="startBtn" class="btn-primary">Start Analysis</button>
+      </section>
+
+      <section id="vision" class="panel fade-in">
+        <h2>Vision</h2>
+        <p>
+          NAUNCE decodes the Cultural DNA of written communication. We combine literal translation,
+          emotional tone analysis, and contextual cultural inference to produce a practical
+          Adaptability Score.
+        </p>
+      </section>
+
+      <section id="analyze" class="panel fade-in">
+        <div class="section-head">
+          <h2>Analysis Studio</h2>
+          <span id="processingDot" class="processing-dot">Idle</span>
+        </div>
+        <div class="voice-textarea-row">
+          <textarea
+            id="inputText"
+            placeholder="Paste your message in English, Urdu, or Telugu..."
+            rows="4"
+          ></textarea>
+          <button id="speakInputBtn" class="voice-btn" type="button">Voice</button>
+        </div>
+        <div id="dropZone" class="drop-zone">
+          Drag and drop <strong>.pdf</strong>, <strong>.txt</strong>, or <strong>.docx</strong> here
+          <input id="fileInput" type="file" accept=".pdf,.txt,.docx" />
+        </div>
+        <div class="action-row">
+          <button id="analyzeBtn" class="btn-primary">Analyze Cultural DNA</button>
+        </div>
+        <div class="translate-row">
+          <label for="targetLanguage">Translate To</label>
+          <select id="targetLanguage">
+            <option value="en">English</option>
+            <option value="ur">Urdu</option>
+            <option value="te">Telugu</option>
+            <option value="hi">Hindi</option>
+            <option value="ar">Arabic</option>
+            <option value="fr">French</option>
+            <option value="es">Spanish</option>
+            <option value="de">German</option>
+            <option value="zh-cn">Chinese</option>
+            <option value="ja">Japanese</option>
+          </select>
+          <button id="translateBtn" class="btn-primary" type="button">
+            Translate Text
+          </button>
+        </div>
+        <div class="translation-output">
+          <div class="translation-head">
+            <h3>Translation Output</h3>
+            <span id="voiceSourceBadge" class="voice-source-badge offline">Voice Source: Offline</span>
+          </div>
+          <p id="translateStatus" class="translate-status">Choose a target language and click Translate Text.</p>
+          <div class="voice-textarea-row">
+            <textarea id="translatedText" rows="4" readonly placeholder="Translated text will appear here..."></textarea>
+            <button id="speakOutputBtn" class="voice-btn" type="button">
+              Voice
+            </button>
+          </div>
+        </div>
+
+        <div id="analysisCards" class="cards">
+          <article class="card float-card">
+            <h3>Literal Translation Risks</h3>
+            <ul id="literalList"></ul>
+          </article>
+          <article class="card float-card">
+            <h3>Emotional Tone</h3>
+            <div id="emotionWheel" class="emotion-wheel"></div>
+            <p id="emotionSummary"></p>
+          </article>
+          <article class="card float-card">
+            <h3>Cultural Context Dossier</h3>
+            <p id="contextSummary"></p>
+          </article>
+        </div>
+      </section>
+
+      <section id="dashboard" class="panel fade-in">
+        <h2>Interactive Dashboard</h2>
+        <div class="dashboard-grid">
+          <div class="card">
+            <h3>Adaptability Score</h3>
+            <svg class="score-ring" width="180" height="180" viewBox="0 0 180 180">
+              <circle cx="90" cy="90" r="72" class="ring-bg"></circle>
+              <circle id="ringProgress" cx="90" cy="90" r="72" class="ring-progress"></circle>
+              <text id="scoreText" x="90" y="98" text-anchor="middle">0</text>
+            </svg>
+          </div>
+          <div class="card">
+            <h3>Safety Distribution</h3>
+            <div class="stat-bars">
+              <div class="stat-row">
+                <span>Safe</span>
+                <div class="stat-track"><div id="safeBar" class="stat-fill safe"></div></div>
+                <strong id="safePct">0%</strong>
+              </div>
+              <div class="stat-row">
+                <span>Caution</span>
+                <div class="stat-track"><div id="cautionBar" class="stat-fill caution"></div></div>
+                <strong id="cautionPct">0%</strong>
+              </div>
+              <div class="stat-row">
+                <span>High Risk</span>
+                <div class="stat-track"><div id="riskBar" class="stat-fill risk"></div></div>
+                <strong id="riskPct">0%</strong>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Communication Fingerprint</h3>
+            <div class="fingerprint-grid">
+              <div class="fp-item">
+                <span>Clarity</span>
+                <strong id="clarityVal">0%</strong>
+              </div>
+              <div class="fp-item">
+                <span>Inclusiveness</span>
+                <strong id="inclusiveVal">0%</strong>
+              </div>
+              <div class="fp-item">
+                <span>Respect</span>
+                <strong id="respectVal">0%</strong>
+              </div>
+              <div class="fp-item">
+                <span>Warmth</span>
+                <strong id="warmthVal">0%</strong>
+              </div>
+              <div class="fp-item">
+                <span>Harm Risk</span>
+                <strong id="harmVal">0%</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="architecture" class="panel fade-in">
+        <h2>System Architecture</h2>
+        <div class="columns">
+          <div>
+            <h3>Database Schema</h3>
+            <ul>
+              <li><strong>Users:</strong> profiles and primary cultural languages.</li>
+              <li><strong>Analyses:</strong> original text, JSONB tone/literal data, adaptability scores.</li>
+              <li><strong>User Idioms:</strong> frequency tracking for marker clouds.</li>
+              <li><strong>Chat History:</strong> contextual logs for Naunce Bot.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>API Endpoints</h3>
+            <ul>
+              <li><code>/api/auth/</code> registration, login, session management.</li>
+              <li><code>/api/analyze/</code> text and file processing logic.</li>
+              <li><code>/api/dashboard/</code> trends and marker analytics.</li>
+              <li><code>/api/chat/</code> contextual AI assistant messaging.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+
+
+    <script src="./app.js?v=20260415-7"></script>
+    <script>
+    /* ── Live Background Animation ── */
+    (function () {
+      const canvas = document.getElementById('liveBg');
+      const ctx = canvas.getContext('2d');
+
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      // Color palette: white, soft pinks, deep reds
+      const PALETTE = [
+        'rgba(143,31,36,',   // deep red
+        'rgba(180,55,62,',   // medium red
+        'rgba(220,100,108,', // rose red
+        'rgba(255,200,205,', // blush pink
+        'rgba(255,240,242,', // near white pink
+        'rgba(255,255,255,', // pure white
+      ];
+
+      // ── Orbs (large soft blobs) ──
+      const NUM_ORBS = 6;
+      const orbs = Array.from({ length: NUM_ORBS }, (_, i) => ({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        r: 180 + Math.random() * 220,
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        color: PALETTE[i % PALETTE.length],
+        opacity: 0.08 + Math.random() * 0.10,
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.004 + Math.random() * 0.004,
+      }));
+
+      // ── Particles (tiny glowing dots) ──
+      const NUM_PARTICLES = 55;
+      const particles = Array.from({ length: NUM_PARTICLES }, () => createParticle());
+
+      function createParticle() {
+        return {
+          x: Math.random() * window.innerWidth,
+          y: Math.random() * window.innerHeight,
+          vx: (Math.random() - 0.5) * 0.55,
+          vy: -0.4 - Math.random() * 0.5,
+          size: 1 + Math.random() * 2.5,
+          color: PALETTE[Math.floor(Math.random() * PALETTE.length)],
+          alpha: 0.3 + Math.random() * 0.5,
+          life: Math.random(),
+          decay: 0.002 + Math.random() * 0.003,
+        };
+      }
+
+      // ── Aurora wave lines ──
+      const NUM_WAVES = 4;
+      const waves = Array.from({ length: NUM_WAVES }, (_, i) => ({
+        amplitude: 40 + i * 18,
+        frequency: 0.004 + i * 0.002,
+        speed: 0.0006 + i * 0.0003,
+        yBase: 0.25 + i * 0.18,
+        color: PALETTE[i % PALETTE.length],
+        opacity: 0.04 + i * 0.015,
+        phase: Math.random() * Math.PI * 2,
+        lineWidth: 60 + i * 40,
+      }));
+
+      let t = 0;
+
+      function drawOrbs() {
+        orbs.forEach(o => {
+          o.phase += o.speed;
+          const pulse = Math.sin(o.phase) * 0.03;
+
+          // drift with wraparound
+          o.x += o.vx;
+          o.y += o.vy;
+          if (o.x < -o.r) o.x = canvas.width + o.r;
+          if (o.x > canvas.width + o.r) o.x = -o.r;
+          if (o.y < -o.r) o.y = canvas.height + o.r;
+          if (o.y > canvas.height + o.r) o.y = -o.r;
+
+          const grad = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.r * (1 + pulse));
+          grad.addColorStop(0, o.color + (o.opacity + pulse) + ')');
+          grad.addColorStop(1, o.color + '0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(o.x, o.y, o.r * (1 + pulse), 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      function drawWaves() {
+        waves.forEach(w => {
+          w.phase += w.speed;
+          const yBase = canvas.height * w.yBase;
+
+          ctx.beginPath();
+          ctx.lineWidth = w.lineWidth;
+          ctx.strokeStyle = w.color + w.opacity + ')';
+
+          for (let x = 0; x <= canvas.width; x += 3) {
+            const y = yBase + Math.sin(x * w.frequency + w.phase) * w.amplitude
+                          + Math.sin(x * w.frequency * 0.5 + w.phase * 1.3) * (w.amplitude * 0.4);
+            x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        });
+      }
+
+      function drawParticles() {
+        particles.forEach((p, i) => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.life -= p.decay;
+
+          if (p.life <= 0 || p.y < -10) {
+            particles[i] = createParticle();
+            particles[i].x = Math.random() * canvas.width;
+            particles[i].y = canvas.height + 10;
+            return;
+          }
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fillStyle = p.color + (p.alpha * p.life) + ')';
+          ctx.fill();
+
+          // glow halo
+          const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 4);
+          glow.addColorStop(0, p.color + (p.alpha * p.life * 0.5) + ')');
+          glow.addColorStop(1, p.color + '0)');
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * 4, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      function animate() {
+        t++;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Base gradient background
+        const bgGrad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        bgGrad.addColorStop(0, '#ffffff');
+        bgGrad.addColorStop(0.5, '#fff3f5');
+        bgGrad.addColorStop(1, '#ffe6ea');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        drawWaves();
+        drawOrbs();
+        drawParticles();
+
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+    })();
+    </script>
+  </body>
+</html>
