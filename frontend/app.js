@@ -224,9 +224,11 @@ async function speakText(text, label, languageOverride, btn, speedSelect) {
   }
 
   const selectedLanguage = (languageOverride || resolveTargetLanguage() || "en").toLowerCase();
-  const speed = speedSelect ? speedSelect.value : "1.0";
+  const speedVal = speedSelect ? speedSelect.value : "1.0";
   
-  if (refs.translateStatus) refs.translateStatus.textContent = `Generating ${label} voice at ${speed}x...`;
+  if (refs.translateStatus) {
+    refs.translateStatus.textContent = `Generating ${label} voice at ${speedVal}x speed...`;
+  }
   
   if (btn) {
     btn.textContent = "Stop ⏹";
@@ -245,7 +247,7 @@ async function speakText(text, label, languageOverride, btn, speedSelect) {
         text: content,
         target_language: selectedLanguage,
         style: refs.voiceStyle ? refs.voiceStyle.value : "default",
-        speed: speed + "x",
+        speed: speedVal + "x",
       }),
     });
 

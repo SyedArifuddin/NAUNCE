@@ -625,8 +625,8 @@ def apply_professor_diction(text: str) -> str:
 
 
 async def synthesize_edge_tts_stream(text: str, voice_name: str, style: str, speed_multiplier: float = 1.0):
-    # Base rate comes from the speed multiplier (e.g. 1.0 = +0%, 0.5 = -50%, 1.5 = +50%)
-    base_rate_val = int((speed_multiplier - 1.0) * 100)
+    # Calculate base percentage shift from 1.0x
+    base_rate_pct = int((speed_multiplier - 1.0) * 100)
     
     # Emotional style modifiers
     style_rate_mod = 0
@@ -642,8 +642,10 @@ async def synthesize_edge_tts_stream(text: str, voice_name: str, style: str, spe
         style_rate_mod = -10
         pitch = "-10Hz"
 
-    final_rate_val = base_rate_val + style_rate_mod
-    rate_str = f"{'+' if final_rate_val >= 0 else ''}{final_rate_val}%"
+    total_rate = base_rate_pct + style_rate_mod
+    
+    # Format: +50%, -25%, +0%
+    rate_str = f"{total_rate:+d}%"
 
     communicate = edge_tts.Communicate(text=text, voice=voice_name, rate=rate_str, pitch=pitch)
     async for chunk in communicate.stream():
