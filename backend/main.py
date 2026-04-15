@@ -183,9 +183,15 @@ def resolve_language_code(language_input: str) -> str:
 
 def get_db_connection():
     db_url = get_db_url()
+    print(f"DEBUG: Attempting connection. URL Length: {len(db_url)}")
     if not db_url:
+        print("DEBUG: Connection failed - URL IS EMPTY")
         raise HTTPException(status_code=500, detail="DATABASE_URL is missing in environment")
-    return psycopg2.connect(db_url)
+    try:
+        return psycopg2.connect(db_url)
+    except Exception as e:
+        print(f"DEBUG: Connection failed - {e}")
+        raise e
 
 
 def init_db():
