@@ -7,8 +7,9 @@ const API_BASE = (() => {
     if (window.location.port === "8000" || window.location.port === "") {
       return window.location.origin;
     }
+    return DEFAULT_API_BASE;
   }
-  return DEFAULT_API_BASE;
+  return "";
 })();
 
 
