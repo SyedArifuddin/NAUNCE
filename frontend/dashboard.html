@@ -56,7 +56,15 @@
             placeholder="Paste your message in English, Urdu, or Telugu..."
             rows="4"
           ></textarea>
-          <button id="speakInputBtn" class="voice-btn" type="button">Voice</button>
+          <div class="voice-controls input-controls">
+            <select id="voiceSpeed_input" class="compact-select">
+              <option value="0.5">0.5x</option>
+              <option value="1.0" selected>1.0x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2.0">2.0x</option>
+            </select>
+            <button id="speakInputBtn" class="voice-btn" type="button">Voice</button>
+          </div>
         </div>
         <div id="dropZone" class="drop-zone">
           Drag and drop <strong>.pdf</strong>, <strong>.txt</strong>, or <strong>.docx</strong> here
@@ -119,6 +127,12 @@
                 <option value="enthusiastic">Enthusiastic</option>
                 <option value="professional">Professional</option>
                 <option value="empathetic">Empathetic</option>
+              </select>
+              <select id="voiceSpeed_output" class="compact-select">
+                <option value="0.5">0.5x</option>
+                <option value="1.0" selected>1.0x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2.0">2.0x</option>
               </select>
               <button id="speakOutputBtn" class="voice-btn" type="button">
                 Voice

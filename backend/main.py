@@ -87,7 +87,8 @@ class TranslatePayload(BaseModel):
 class SpeakPayload(BaseModel):
     text: str = Field(min_length=1)
     target_language: str = Field(min_length=2, default="en")
-    style: str = Field(default="professor")
+    style: str = Field(default="default")
+    speed: str = Field(default="1.0x")
 
 
 SPEAK_VOICE_MAP = {
@@ -623,21 +624,28 @@ def apply_professor_diction(text: str) -> str:
     return normalized.strip()
 
 
-async def synthesize_edge_tts_stream(text: str, voice_name: str, style: str):
-    rate = "+0%"
+async def synthesize_edge_tts_stream(text: str, voice_name: str, style: str, speed_multiplier: float = 1.0):
+    # Base rate comes from the speed multiplier (e.g. 1.0 = +0%, 0.5 = -50%, 1.5 = +50%)
+    base_rate_val = int((speed_multiplier - 1.0) * 100)
+    
+    # Emotional style modifiers
+    style_rate_mod = 0
     pitch = "+0Hz"
     
     if style == "enthusiastic":
-        rate = "+15%"
+        style_rate_mod = 15
         pitch = "+10Hz"
     elif style == "professional":
-        rate = "-5%"
+        style_rate_mod = -5
         pitch = "-5Hz"
     elif style == "empathetic":
-        rate = "-10%"
+        style_rate_mod = -10
         pitch = "-10Hz"
 
-    communicate = edge_tts.Communicate(text=text, voice=voice_name, rate=rate, pitch=pitch)
+    final_rate_val = base_rate_val + style_rate_mod
+    rate_str = f"{'+' if final_rate_val >= 0 else ''}{final_rate_val}%"
+
+    communicate = edge_tts.Communicate(text=text, voice=voice_name, rate=rate_str, pitch=pitch)
     async for chunk in communicate.stream():
         if chunk.get("type") == "audio":
             yield chunk.get("data", b"")
@@ -659,8 +667,14 @@ async def speak(payload: SpeakPayload, user=Depends(get_current_user)):
             detail=f"No configured voice for '{target_code}'.",
         )
         
+    # Extract speed numeric value from payload (e.g. "1.5x" -> 1.5)
+    try:
+        speed_val = float(payload.speed.replace("x", ""))
+    except:
+        speed_val = 1.0
+        
     return StreamingResponse(
-        synthesize_edge_tts_stream(text, voice_name, payload.style), 
+        synthesize_edge_tts_stream(text, voice_name, payload.style, speed_val), 
         media_type="audio/mpeg"
     )
 

@@ -43,6 +43,8 @@ const refs = {
   translateTone: document.getElementById("translateTone"),
   translatePersona: document.getElementById("translatePersona"),
   voiceStyle: document.getElementById("voiceStyle"),
+  voiceSpeedInput: document.getElementById("voiceSpeed_input"),
+  voiceSpeedOutput: document.getElementById("voiceSpeed_output"),
 };
 const DEFAULT_API_BASE = "http://127.0.0.1:8000";
 const API_BASE = (() => {
@@ -192,6 +194,7 @@ function renderFingerprint(values) {
 }
 
 let currentAudio = null;
+let activeSpeakButton = null;
 
 function setVoiceSourceStatus(isOnline) {
   if (!refs.voiceSourceBadge) return;
@@ -200,14 +203,36 @@ function setVoiceSourceStatus(isOnline) {
   refs.voiceSourceBadge.textContent = isOnline ? "Voice Source: Cloud" : "Voice Source: Offline";
 }
 
-async function speakText(text, label, languageOverride) {
+async function speakText(text, label, languageOverride, btn, speedSelect) {
   const content = (text || "").trim();
   if (!content) {
     if (refs.translateStatus) refs.translateStatus.textContent = `No ${label} text available to speak.`;
     return;
   }
+
+  // Handle Stop Functionality
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+    if (activeSpeakButton) {
+      activeSpeakButton.textContent = "Voice";
+      activeSpeakButton.classList.remove("stop-btn");
+      activeSpeakButton = null;
+    }
+    if (refs.translateStatus) refs.translateStatus.textContent = "Speech stopped.";
+    return;
+  }
+
   const selectedLanguage = (languageOverride || resolveTargetLanguage() || "en").toLowerCase();
-  if (refs.translateStatus) refs.translateStatus.textContent = `Generating ${label} voice...`;
+  const speed = speedSelect ? speedSelect.value : "1.0";
+  
+  if (refs.translateStatus) refs.translateStatus.textContent = `Generating ${label} voice at ${speed}x...`;
+  
+  if (btn) {
+    btn.textContent = "Stop ⏹";
+    btn.classList.add("stop-btn");
+    activeSpeakButton = btn;
+  }
 
   try {
     const response = await fetch(`${API_BASE}/api/speak`, {
@@ -220,6 +245,7 @@ async function speakText(text, label, languageOverride) {
         text: content,
         target_language: selectedLanguage,
         style: refs.voiceStyle ? refs.voiceStyle.value : "default",
+        speed: speed + "x",
       }),
     });
 
@@ -233,33 +259,60 @@ async function speakText(text, label, languageOverride) {
         message = raw || message;
       }
       refs.translateStatus.textContent = message;
+      if (btn) {
+        btn.textContent = "Voice";
+        btn.classList.remove("stop-btn");
+        activeSpeakButton = null;
+      }
       setVoiceSourceStatus(false);
       return;
     }
 
     const audioBlob = await response.blob();
     const audioUrl = URL.createObjectURL(audioBlob);
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio = null;
+    
+    // Safety check if user stopped while fetching
+    if (activeSpeakButton !== btn && btn) {
+        URL.revokeObjectURL(audioUrl);
+        return;
     }
+
     const audio = new Audio(audioUrl);
     currentAudio = audio;
+    
     audio.onplay = () => {
       refs.translateStatus.textContent = `Speaking ${label}...`;
       setVoiceSourceStatus(true);
     };
     audio.onended = () => {
       refs.translateStatus.textContent = `Finished speaking ${label}.`;
+      if (btn) {
+        btn.textContent = "Voice";
+        btn.classList.remove("stop-btn");
+        if (activeSpeakButton === btn) activeSpeakButton = null;
+      }
+      currentAudio = null;
       URL.revokeObjectURL(audioUrl);
     };
     audio.onerror = () => {
       refs.translateStatus.textContent = `Could not play ${label} voice audio.`;
+      if (btn) {
+        btn.textContent = "Voice";
+        btn.classList.remove("stop-btn");
+        if (activeSpeakButton === btn) activeSpeakButton = null;
+      }
+      currentAudio = null;
       URL.revokeObjectURL(audioUrl);
     };
     await audio.play();
   } catch (error) {
-    refs.translateStatus.textContent = "Voice service unavailable. Check backend connection and internet.";
+    console.error("Speak error:", error);
+    refs.translateStatus.textContent = "Voice service unavailable. Check backend connection.";
+    if (btn) {
+      btn.textContent = "Voice";
+      btn.classList.remove("stop-btn");
+      activeSpeakButton = null;
+    }
     setVoiceSourceStatus(false);
   }
 }
@@ -570,13 +623,13 @@ window.naunceTranslate = runTranslation;
 if (refs.speakInputBtn) {
   refs.speakInputBtn.addEventListener("click", () => {
     const input = getBestAvailableInputText();
-    speakText(input, "input", detectLanguageFromText(input));
+    speakText(input, "input", detectLanguageFromText(input), refs.speakInputBtn, refs.voiceSpeedInput);
   });
 }
 
 if (refs.speakOutputBtn) {
   refs.speakOutputBtn.addEventListener("click", () => {
-    speakText(refs.translatedText?.value || "", "output", resolveTargetLanguage());
+    speakText(refs.translatedText?.value || "", "output", resolveTargetLanguage(), refs.speakOutputBtn, refs.voiceSpeedOutput);
   });
 }
 

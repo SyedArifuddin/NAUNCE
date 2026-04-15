@@ -217,6 +217,42 @@ textarea {
   background: rgba(143, 31, 36, 0.08);
 }
 
+.voice-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.input-controls {
+  align-self: start;
+}
+
+.compact-select {
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  border: 1px solid #d3d7de;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--muted);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.compact-select:hover {
+  border-color: var(--terracotta);
+}
+
+.voice-btn.stop-btn {
+  background: var(--terracotta);
+  color: white;
+  border-color: var(--terracotta);
+}
+
+.voice-btn.stop-btn:hover {
+  background: var(--gold);
+}
+
 .drop-zone {
   border: 1px dashed #8f1f24;
   margin-top: 14px;
