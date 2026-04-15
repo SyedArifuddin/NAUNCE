@@ -625,8 +625,14 @@ def apply_professor_diction(text: str) -> str:
 
 
 async def synthesize_edge_tts_stream(text: str, voice_name: str, style: str, speed_multiplier: float = 1.0):
-    # Calculate base percentage shift from 1.0x
-    base_rate_pct = int((speed_multiplier - 1.0) * 100)
+    # Calculate base percentage shift.
+    # We increase the impact so 1.5x selection -> +75% (instead of +50)
+    # and 2.5x -> +225% (very fast) to make it unmistakable.
+    if speed_multiplier >= 1.0:
+        base_rate_pct = int((speed_multiplier - 1.0) * 150)
+    else:
+        # For slow speeds, stay linear
+        base_rate_pct = int((speed_multiplier - 1.0) * 100)
     
     # Emotional style modifiers
     style_rate_mod = 0
@@ -644,7 +650,7 @@ async def synthesize_edge_tts_stream(text: str, voice_name: str, style: str, spe
 
     total_rate = base_rate_pct + style_rate_mod
     
-    # Format: +50%, -25%, +0%
+    # Format: +50%, -25%
     rate_str = f"{total_rate:+d}%"
 
     communicate = edge_tts.Communicate(text=text, voice=voice_name, rate=rate_str, pitch=pitch)
@@ -677,7 +683,8 @@ async def speak(payload: SpeakPayload, user=Depends(get_current_user)):
         
     return StreamingResponse(
         synthesize_edge_tts_stream(text, voice_name, payload.style, speed_val), 
-        media_type="audio/mpeg"
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
     )
 
 
