@@ -92,6 +92,16 @@ SPEAK_VOICE_MAP = {
     "de": "de-DE-KatjaNeural",
     "zh-cn": "zh-CN-XiaoxiaoNeural",
     "ja": "ja-JP-NanamiNeural",
+    "it": "it-IT-ElsaNeural",
+    "pt": "pt-BR-FranciscaNeural",
+    "ko": "ko-KR-SunHiNeural",
+    "ru": "ru-RU-SvetlanaNeural",
+    "nl": "nl-NL-ColetteNeural",
+    "tr": "tr-TR-EmelNeural",
+    "sv": "sv-SE-SofieNeural",
+    "pl": "pl-PL-ZofiaNeural",
+    "vi": "vi-VN-HoaiMyNeural",
+    "th": "th-TH-PremwadeeNeural",
 }
 
 
@@ -125,6 +135,19 @@ def resolve_language_code(language_input: str) -> str:
         "german": "de",
         "japanese": "ja",
         "english": "en",
+        "italiano": "it",
+        "italian": "it",
+        "portuguese": "pt",
+        "portugais": "pt",
+        "korean": "ko",
+        "hangul": "ko",
+        "russian": "ru",
+        "turkish": "tr",
+        "dutch": "nl",
+        "swedish": "sv",
+        "polish": "pl",
+        "vietnamese": "vi",
+        "thai": "th",
     }
 
     if normalized in code_to_name:
@@ -259,28 +282,64 @@ def login(payload: LoginPayload):
 
 
 @app.post("/api/analyze")
-def analyze(payload: AnalyzePayload, user=Depends(get_current_user)):
-    text = payload.text.lower()
-    literal_flags = []
-    if "just translate" in text:
-        literal_flags.append("Literal phrase may erase social context.")
-    if "do it now" in text:
-        literal_flags.append("Command-heavy wording may reduce politeness.")
-    if not literal_flags:
-        literal_flags.append("No high-risk literal phrase detected.")
+async def analyze(payload: AnalyzePayload, user=Depends(get_current_user)):
+    if not GEMINI_API_KEY:
+        # Fallback to lite logic if key is missing
+        text = payload.text.lower()
+        score = max(40, min(95, 64 + (8 if "please" in text else -7)))
+        return {
+            "user": user["email"],
+            "adaptability_score": score,
+            "literal_translation": ["AI key missing, using lite analysis."],
+            "emotional_tone": {"respect": 70, "urgency": 50, "warmth": 60},
+            "cultural_context": "Lite mode active.",
+            "markers": ["lite-analysis"],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
 
-    score = max(40, min(95, 64 + (8 if "please" in text else -7)))
-    response = {
-        "user": user["email"],
-        "adaptability_score": score,
-        "literal_translation": literal_flags,
-        "emotional_tone": {"respect": 75, "urgency": 58, "warmth": 61},
-        "cultural_context": "Use relational framing and contextual politeness markers.",
-        "markers": ["izzat", "adab", "maryada", "samman"],
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+    system_prompt = (
+        "You are Naunce AI, a cultural communication expert. Analyze the input text for:\n"
+        "1. Adaptability Score (0-100): How well does it fit diverse cultural contexts?\n"
+        "2. Literal Translation Risks: Phrases that might be misunderstood if translated literally.\n"
+        "3. Emotional Tone: Respect, Warmth, Urgency (0-100 each).\n"
+        "4. Cultural Context: A short paragraph explaining the communication DNA.\n"
+        "5. Linguistic Markers: 3-5 keywords representing the tone (e.g. 'izzat', 'directness').\n\n"
+        "Return ONLY a JSON object with these keys: score, risks (list), respect, warmth, urgency, context, markers (list)."
+    )
+
+    body = {
+        "system_instruction": {"parts": [{"text": system_prompt}]},
+        "contents": [{"role": "user", "parts": [{"text": payload.text}]}],
+        "generationConfig": {"temperature": 0.4, "responseMimeType": "application/json"},
     }
-    fake_analysis_history.append(response)
-    return response
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(GEMINI_URL, json=body)
+        if not resp.is_success:
+            raise HTTPException(status_code=502, detail="AI Analysis failed")
+        
+        data = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+        import json
+        analysis = json.loads(data)
+
+        response = {
+            "user": user["email"],
+            "adaptability_score": analysis.get("score", 50),
+            "literal_translation": analysis.get("risks", []),
+            "emotional_tone": {
+                "respect": analysis.get("respect", 50),
+                "urgency": analysis.get("urgency", 50),
+                "warmth": analysis.get("warmth", 50)
+            },
+            "cultural_context": analysis.get("context", "Analysis complete."),
+            "markers": analysis.get("markers", []),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        fake_analysis_history.append(response)
+        return response
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"AI analysis error: {str(exc)}")
 
 
 @app.get("/api/dashboard")

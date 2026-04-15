@@ -49,6 +49,22 @@
       resize();
       window.addEventListener('resize', resize);
 
+      // --- WARM UP BACKEND ---
+      async function warmUp() {
+        try {
+          // Detect API Base from current origin
+          const apiBase = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
+            ? "http://127.0.0.1:8000" 
+            : "";
+          console.log("Warming up backend at:", apiBase + "/health");
+          await fetch(`${apiBase}/health`, { mode: 'no-cors' });
+        } catch (e) {
+          console.warn("Backend warmup failed", e);
+        }
+      }
+      warmUp();
+      // -----------------------
+
       const PALETTE = [
         'rgba(143,31,36,', 'rgba(180,55,62,', 'rgba(220,100,108,',
         'rgba(255,200,205,', 'rgba(255,240,242,', 'rgba(255,255,255,',

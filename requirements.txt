@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+python-jose[cryptography]
+pydantic[email]
+psycopg2-binary
+passlib
+python-dotenv
+deep-translator
+pypdf
+python-docx
+python-multipart
+edge-tts
+httpx
