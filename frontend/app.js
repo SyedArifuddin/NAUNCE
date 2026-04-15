@@ -383,12 +383,15 @@ async function runAnalysis() {
     
     // 3. Render Emotional Tone (Respect, Warmth, Urgency)
     // Ensuring we handle cases where the backend might return null/undefined
-    const tone = result.emotional_tone || { respect: 0, warmth: 0, urgency: 0 };
+    const tone = result.emotional_tone || { respect: 0, warmth: 0, urgency: 0, physical_tension: 0 };
     const uiEmotions = [
       { label: "Respect", value: tone.respect },
       { label: "Warmth", value: tone.warmth },
       { label: "Urgency", value: tone.urgency },
     ];
+    if (tone.physical_tension !== undefined) {
+      uiEmotions.push({ label: "Physical Tension", value: tone.physical_tension });
+    }
     renderEmotions(uiEmotions);
     
     // 4. Update Cultural Context Summary
@@ -411,11 +414,11 @@ async function runAnalysis() {
     
     // 7. Update Communication Fingerprint
     renderFingerprint({
-        clarity: result.clarity || 85, // Defaulting to 85 if not provided
-        inclusiveness: result.inclusiveness || 80,
+        clarity: result.clarity !== undefined ? result.clarity : 85,
+        inclusiveness: result.inclusiveness !== undefined ? result.inclusiveness : 80,
         respect: tone.respect,
         warmth: tone.warmth,
-        harmRisk: urgency
+        harmRisk: tone.physical_tension !== undefined ? Math.max(urgency, tone.physical_tension) : urgency
     });
 
     if (refs.translateStatus) {

@@ -355,13 +355,13 @@ async def analyze(payload: AnalyzePayload, user=Depends(get_current_user)):
         }
 
     system_prompt = (
-        "You are Naunce AI, a cultural communication expert. Analyze the input text for:\n"
-        "1. Adaptability Score (0-100): How well does it fit diverse cultural contexts?\n"
+        "You are Naunce AI, a cultural communication expert. Perform a deep, highly accurate analysis of the input text emotionally, culturally, and physically (e.g. implied body language, physiological tension, directness).\n"
+        "1. Adaptability Score (0-100): How well it fits diverse cultural contexts.\n"
         "2. Literal Translation Risks: Phrases that might be misunderstood if translated literally.\n"
-        "3. Emotional Tone: Respect, Warmth, Urgency (0-100 each).\n"
-        "4. Cultural Context: A short paragraph explaining the communication DNA.\n"
+        "3. Metrics (0-100 each): respect, warmth, urgency, clarity, inclusiveness, and physical_tension.\n"
+        "4. Cultural Context: A short paragraph explaining the communication DNA, including emotional undertones and physical implications.\n"
         "5. Linguistic Markers: 3-5 keywords representing the tone (e.g. 'izzat', 'directness').\n\n"
-        "Return ONLY a JSON object with these keys: score, risks (list), respect, warmth, urgency, context, markers (list)."
+        "Return ONLY a valid JSON object with these precise keys (no markdown): score, risks (list of strings), respect, warmth, urgency, clarity, inclusiveness, physical_tension, context, markers (list of strings)."
     )
 
     body = {
@@ -401,8 +401,11 @@ async def analyze(payload: AnalyzePayload, user=Depends(get_current_user)):
             "emotional_tone": {
                 "respect": analysis.get("respect", 50),
                 "urgency": analysis.get("urgency", 50),
-                "warmth": analysis.get("warmth", 50)
+                "warmth": analysis.get("warmth", 50),
+                "physical_tension": analysis.get("physical_tension", 0)
             },
+            "clarity": analysis.get("clarity", 85),
+            "inclusiveness": analysis.get("inclusiveness", 80),
             "cultural_context": analysis.get("context", "Analysis complete."),
             "markers": analysis.get("markers", []),
             "timestamp": datetime.now(timezone.utc).isoformat(),
