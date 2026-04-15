@@ -42,7 +42,7 @@ security = HTTPBearer()
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 # We will fetch these dynamically in the functions to ensure Vercel's latest config is picked up
 def get_db_url():
-    return os.getenv("DATABASE_URL", "")
+    return os.getenv("NAUNCE_DB_URL", "")
 
 def get_gemini_key():
     return os.getenv("GEMINI_API_KEY", "")
@@ -192,7 +192,7 @@ def get_db_connection():
     print(f"DEBUG: Attempting connection. URL Length: {len(db_url)}")
     if not db_url:
         print("DEBUG: Connection failed - URL IS EMPTY")
-        raise HTTPException(status_code=500, detail="DATABASE_URL is missing in environment")
+        raise HTTPException(status_code=500, detail="NAUNCE_DB_URL is missing in environment")
     try:
         return psycopg2.connect(db_url)
     except Exception as e:
