@@ -20,4 +20,5 @@ jobs:
             exit 1
           fi
           echo "Pinging $URL/health"
-          curl -I -s -X GET "$URL/health"
+          curl -I -s -X GET "$URL/health" \
+            -H "x-vercel-protection-bypass: ${{ secrets.VERCEL_BYPASS_TOKEN }}"

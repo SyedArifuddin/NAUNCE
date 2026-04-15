@@ -41,9 +41,8 @@ const refs = {
   startBtn: document.getElementById("startBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
 };
-const API_BASE = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" 
-  ? "http://127.0.0.1:8000" 
-  : "";
+const API_BASE = "https://naunce-4wqsob18g-syedarif3126-8192s-projects.vercel.app";
+
 
 const currentUser = localStorage.getItem("naunce_current_user");
 const accessToken = localStorage.getItem("naunce_access_token");
@@ -171,17 +170,36 @@ async function speakText(text, label, languageOverride) {
 
 async function checkBackendConnection() {
   if (!refs.translateStatus) return;
+  
+  // Inform user we are checking
+  const originalStatus = refs.translateStatus.textContent;
+  refs.translateStatus.textContent = "Connecting to backend...";
+
   try {
-    const response = await fetch(`${API_BASE}/health`, { method: "GET" });
+    // Increased timeout for cold starts (Vercel free tier)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
+    const response = await fetch(`${API_BASE}/health`, { 
+      method: "GET",
+      signal: controller.signal 
+    });
+    
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-      refs.translateStatus.textContent = "Backend connected with errors. Please restart backend.";
+      refs.translateStatus.textContent = "Backend connected with errors. Please check logs.";
       setVoiceSourceStatus(false);
       return;
     }
-    refs.translateStatus.textContent = "Backend connected. Translation module ready.";
+    refs.translateStatus.textContent = "Backend active. All systems online.";
     setVoiceSourceStatus(true);
   } catch (error) {
-    refs.translateStatus.textContent = "Backend not reachable. Start backend on 127.0.0.1:8000.";
+    if (error.name === "AbortError") {
+      refs.translateStatus.textContent = "Backend is taking a while to wake up. Please wait...";
+    } else {
+      refs.translateStatus.textContent = "Backend unreachable. If testing locally, ensure backend is running.";
+    }
     setVoiceSourceStatus(false);
   }
 }

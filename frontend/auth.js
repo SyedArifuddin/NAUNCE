@@ -1,6 +1,8 @@
 const AUTH_CURRENT_KEY = "naunce_current_user";
 const AUTH_TOKEN_KEY = "naunce_access_token";
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "https://naunce-4wqsob18g-syedarif3126-8192s-projects.vercel.app";
+
+
 
 const loginForm = document.getElementById("loginForm");
 const signupForm = document.getElementById("signupForm");
@@ -45,7 +47,7 @@ if (loginForm) {
         window.location.href = "./dashboard.html";
       }, 500);
     } catch (error) {
-      showMessage("Unable to reach server. Start backend and try again.");
+      showMessage("Unable to reach server. It might be waking up or offline.");
       return;
     }
   });
@@ -87,7 +89,7 @@ if (signupForm) {
         window.location.href = "./dashboard.html";
       }, 600);
     } catch (error) {
-      showMessage("Unable to reach server. Start backend and try again.");
+      showMessage("Unable to reach server. It might be waking up or offline.");
       return;
     }
   });

@@ -38,9 +38,6 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
 
-fake_analysis_history: List[Dict] = []
-fake_chat_history: List[Dict] = []
-
 
 class RegisterPayload(BaseModel):
     email: EmailStr
@@ -199,6 +196,23 @@ def init_db():
                     primary_language TEXT NOT NULL DEFAULT 'English',
                     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 );
+                CREATE TABLE IF NOT EXISTS analysis_history (
+                    id SERIAL PRIMARY KEY,
+                    user_email TEXT NOT NULL,
+                    adaptability_score INTEGER NOT NULL,
+                    literal_translation JSONB DEFAULT '[]',
+                    emotional_tone JSONB NOT NULL,
+                    cultural_context TEXT,
+                    markers JSONB DEFAULT '[]',
+                    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                CREATE TABLE IF NOT EXISTS chat_history (
+                    id SERIAL PRIMARY KEY,
+                    user_email TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    reply TEXT NOT NULL,
+                    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
                 """
             )
             conn.commit()
@@ -336,7 +350,25 @@ async def analyze(payload: AnalyzePayload, user=Depends(get_current_user)):
             "markers": analysis.get("markers", []),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-        fake_analysis_history.append(response)
+        
+        import json
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO analysis_history (user_email, adaptability_score, literal_translation, emotional_tone, cultural_context, markers)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        user["email"],
+                        response["adaptability_score"],
+                        json.dumps(response["literal_translation"]),
+                        json.dumps(response["emotional_tone"]),
+                        response["cultural_context"],
+                        json.dumps(response["markers"])
+                    )
+                )
+                conn.commit()
         return response
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"AI analysis error: {str(exc)}")
@@ -344,14 +376,27 @@ async def analyze(payload: AnalyzePayload, user=Depends(get_current_user)):
 
 @app.get("/api/dashboard")
 def dashboard(user=Depends(get_current_user)):
-    trend = [entry["adaptability_score"] for entry in fake_analysis_history[-8:]]
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT adaptability_score, markers FROM analysis_history WHERE user_email = %s ORDER BY timestamp DESC LIMIT 50",
+                (user["email"],)
+            )
+            rows = cur.fetchall()
+            
+    trend = [r[0] for r in reversed(rows[-8:])]
     markers = {}
-    for entry in fake_analysis_history:
-        for marker in entry.get("markers", []):
+    import json
+    for r in rows:
+        ms = r[1]
+        if isinstance(ms, str):
+            ms = json.loads(ms)
+        for marker in ms:
             markers[marker] = markers.get(marker, 0) + 1
+            
     return {
         "user": user["email"],
-        "total_analyses": len(fake_analysis_history),
+        "total_analyses": len(rows),
         "trend_scores": trend,
         "word_cloud": markers,
     }
@@ -407,7 +452,14 @@ async def chat(payload: ChatPayload, user=Depends(get_current_user)):
         "message": payload.message,
         "reply": reply,
     }
-    fake_chat_history.append(item)
+    
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO chat_history (user_email, message, reply) VALUES (%s, %s, %s)",
+                (user["email"], item["message"], item["reply"])
+            )
+            conn.commit()
     return item
 
 
