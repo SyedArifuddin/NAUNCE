@@ -79,6 +79,8 @@ class TranslatePayload(BaseModel):
     text: str = Field(min_length=1)
     target_language: str = Field(min_length=2, default="en")
     source_language: Optional[str] = "auto"
+    tone: Optional[str] = "neutral"
+    persona: Optional[str] = "general"
 
 
 class SpeakPayload(BaseModel):
@@ -550,30 +552,58 @@ async def chat(payload: ChatPayload, user=Depends(get_current_user)):
 
 
 @app.post("/api/translate")
-def translate(payload: TranslatePayload, user=Depends(get_current_user)):
-    return perform_translation(payload, user.get("email", "authenticated-user"))
+async def translate(payload: TranslatePayload, user=Depends(get_current_user)):
+    return await perform_translation(payload, user.get("email", "authenticated-user"))
 
 
-def perform_translation(payload: TranslatePayload, user_email: str):
+async def perform_translation(payload: TranslatePayload, user_email: str):
     target_code = resolve_language_code(payload.target_language)
     source_code = (payload.source_language or "auto").lower()
 
-    try:
-        translated = GoogleTranslator(
-            source=source_code,
-            target=target_code,
-        ).translate(payload.text)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=502,
-            detail="Translation service is currently unavailable. Please try again.",
-        ) from exc
+    # Attempt AI Transcreation for non-neutral/non-general requests
+    api_key = get_gemini_key()
+    translated = None
+    if api_key and (payload.tone != "neutral" or payload.persona != "general"):
+        system_prompt = (
+            f"You are Naunce AI Transcreator. Translate the following text into the language denoted by code '{target_code}' (or language '{payload.target_language}').\n"
+            f"Crucially, adapt the translation to fit a '{payload.tone}' tone and ensure it is culturally appropriate for a '{payload.persona}' audience.\n"
+            "Return ONLY the translated text. Do not include markdown blocks, explanations, or quotes."
+        )
+        body = {
+            "system_instruction": {"parts": [{"text": system_prompt}]},
+            "contents": [{"role": "user", "parts": [{"text": payload.text}]}],
+            "generationConfig": {"temperature": 0.5},
+        }
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(gemini_url, json=body)
+            if resp.is_success:
+                data = resp.json()
+                translated = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except Exception as exc:
+            print(f"AI Transcreation failed, falling back to literal translation: {exc}")
+            
+    # Fallback to literal if AI skipped or failed
+    if not translated:
+        try:
+            translated = GoogleTranslator(
+                source=source_code,
+                target=target_code,
+            ).translate(payload.text)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail="Translation service is currently unavailable. Please try again.",
+            ) from exc
 
     return {
         "user": user_email,
         "source_text": payload.text,
         "translated_text": translated,
         "target_language": target_code,
+        "tone_applied": payload.tone,
+        "persona_applied": payload.persona
     }
 
 
@@ -592,8 +622,21 @@ def apply_professor_diction(text: str) -> str:
     return normalized.strip()
 
 
-async def synthesize_edge_tts_async(text: str, voice_name: str) -> bytes:
-    communicate = edge_tts.Communicate(text=text, voice=voice_name, rate="+0%", pitch="+0Hz")
+async def synthesize_edge_tts_async(text: str, voice_name: str, style: str) -> bytes:
+    rate = "+0%"
+    pitch = "+0Hz"
+    
+    if style == "enthusiastic":
+        rate = "+15%"
+        pitch = "+10Hz"
+    elif style == "professional":
+        rate = "-5%"
+        pitch = "-5Hz"
+    elif style == "empathetic":
+        rate = "-10%"
+        pitch = "-10Hz"
+
+    communicate = edge_tts.Communicate(text=text, voice=voice_name, rate=rate, pitch=pitch)
     audio_buffer = BytesIO()
     async for chunk in communicate.stream():
         if chunk.get("type") == "audio":
@@ -604,7 +647,7 @@ async def synthesize_edge_tts_async(text: str, voice_name: str) -> bytes:
     return audio_bytes
 
 
-def synthesize_cloud_tts(text: str, target_language: str) -> bytes:
+def synthesize_cloud_tts(text: str, target_language: str, style: str) -> bytes:
     voice_name = SPEAK_VOICE_MAP.get(target_language)
     if not voice_name:
         raise HTTPException(
@@ -613,7 +656,7 @@ def synthesize_cloud_tts(text: str, target_language: str) -> bytes:
         )
 
     try:
-        return asyncio.run(synthesize_edge_tts_async(text, voice_name))
+        return asyncio.run(synthesize_edge_tts_async(text, voice_name, style))
     except Exception as exc:
         raise HTTPException(
             status_code=502,
@@ -624,8 +667,8 @@ def synthesize_cloud_tts(text: str, target_language: str) -> bytes:
 @app.post("/api/speak")
 def speak(payload: SpeakPayload, user=Depends(get_current_user)):
     target_code = resolve_language_code(payload.target_language)
-    text = apply_professor_diction(payload.text) if payload.style == "professor" else payload.text.strip()
-    audio_bytes = synthesize_cloud_tts(text, target_code)
+    text = payload.text.strip()
+    audio_bytes = synthesize_cloud_tts(text, target_code, payload.style)
     return Response(content=audio_bytes, media_type="audio/mpeg")
 
 

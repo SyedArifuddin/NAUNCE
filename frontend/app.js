@@ -40,6 +40,9 @@ const refs = {
   speakOutputBtn: document.getElementById("speakOutputBtn"),
   startBtn: document.getElementById("startBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
+  translateTone: document.getElementById("translateTone"),
+  translatePersona: document.getElementById("translatePersona"),
+  voiceStyle: document.getElementById("voiceStyle"),
 };
 const DEFAULT_API_BASE = "http://127.0.0.1:8000";
 const API_BASE = (() => {
@@ -216,7 +219,7 @@ async function speakText(text, label, languageOverride) {
       body: JSON.stringify({
         text: content,
         target_language: selectedLanguage,
-        style: "professor",
+        style: refs.voiceStyle ? refs.voiceStyle.value : "default",
       }),
     });
 
@@ -497,6 +500,8 @@ async function runTranslation() {
         text,
         source_language: "auto",
         target_language: targetLanguage,
+        tone: refs.translateTone ? refs.translateTone.value : "neutral",
+        persona: refs.translatePersona ? refs.translatePersona.value : "general",
       }),
     });
     clearTimeout(timeoutId);
