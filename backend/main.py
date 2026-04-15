@@ -281,13 +281,19 @@ def health():
     # Safely list all environment variable names to find the missing one
     env_keys = list(os.environ.keys())
     
+    # Check for subtle typos or spaces in key names
+    naunce_lookalikes = [k for k in env_keys if "NAUNCE" in k.upper()]
+    
     return {
         "status": "ok", 
         "service": "naunce-api",
         "database_configured": bool(db_url),
         "db_url_length": len(db_url),
         "db_url_peek": peek,
-        "available_env_keys": env_keys
+        "available_env_keys_count": len(env_keys),
+        "naunce_keys_found": naunce_lookalikes,
+        "vercel_project_name": os.getenv("VERCEL_PROJECT_NAME", "unknown"),
+        "vercel_env": os.getenv("VERCEL_ENV", "unknown")
     }
 
 
