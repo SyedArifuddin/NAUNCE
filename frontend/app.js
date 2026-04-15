@@ -282,6 +282,14 @@ async function speakText(text, label, languageOverride, btn, speedSelect) {
     const audio = new Audio(audioUrl);
     currentAudio = audio;
     
+    // NATIVE BROWSER OVERRIDE: Guarantee speed change at the hardware level
+    const numericSpeed = parseFloat(speedVal) || 1.0;
+    audio.playbackRate = numericSpeed;
+    // Some browsers require repeating this after the metadata loads
+    audio.addEventListener("loadedmetadata", () => {
+      audio.playbackRate = numericSpeed;
+    });
+    
     audio.onplay = () => {
       refs.translateStatus.textContent = `Speaking ${label}...`;
       setVoiceSourceStatus(true);
