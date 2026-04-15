@@ -262,11 +262,15 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 @app.get("/health")
 def health():
     db_url = get_db_url()
+    peek = ""
+    if db_url:
+        peek = f"{db_url[:5]}...{db_url[-5:]}" if len(db_url) > 10 else "too short"
     return {
         "status": "ok", 
         "service": "naunce-api",
         "database_configured": bool(db_url),
-        "db_url_length": len(db_url)
+        "db_url_length": len(db_url),
+        "db_url_peek": peek
     }
 
 
