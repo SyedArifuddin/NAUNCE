@@ -257,7 +257,11 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "naunce-api"}
+    return {
+        "status": "ok", 
+        "service": "naunce-api",
+        "database_configured": bool(DATABASE_URL)
+    }
 
 
 @app.post("/api/auth/register")
