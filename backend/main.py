@@ -12,6 +12,7 @@ from deep_translator import GoogleTranslator
 from docx import Document
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, HTTPException, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
@@ -622,7 +623,7 @@ def apply_professor_diction(text: str) -> str:
     return normalized.strip()
 
 
-async def synthesize_edge_tts_async(text: str, voice_name: str, style: str) -> bytes:
+async def synthesize_edge_tts_stream(text: str, voice_name: str, style: str):
     rate = "+0%"
     pitch = "+0Hz"
     
@@ -637,39 +638,31 @@ async def synthesize_edge_tts_async(text: str, voice_name: str, style: str) -> b
         pitch = "-10Hz"
 
     communicate = edge_tts.Communicate(text=text, voice=voice_name, rate=rate, pitch=pitch)
-    audio_buffer = BytesIO()
     async for chunk in communicate.stream():
         if chunk.get("type") == "audio":
-            audio_buffer.write(chunk.get("data", b""))
-    audio_bytes = audio_buffer.getvalue()
-    if not audio_bytes:
-        raise RuntimeError("No audio returned from voice service.")
-    return audio_bytes
-
-
-def synthesize_cloud_tts(text: str, target_language: str, style: str) -> bytes:
-    voice_name = SPEAK_VOICE_MAP.get(target_language)
-    if not voice_name:
-        raise HTTPException(
-            status_code=422,
-            detail=f"No configured voice for '{target_language}'.",
-        )
-
-    try:
-        return asyncio.run(synthesize_edge_tts_async(text, voice_name, style))
-    except Exception as exc:
-        raise HTTPException(
-            status_code=502,
-            detail="Voice service is currently unavailable. Please try again.",
-        ) from exc
+            yield chunk.get("data", b"")
 
 
 @app.post("/api/speak")
-def speak(payload: SpeakPayload, user=Depends(get_current_user)):
+async def speak(payload: SpeakPayload, user=Depends(get_current_user)):
     target_code = resolve_language_code(payload.target_language)
     text = payload.text.strip()
-    audio_bytes = synthesize_cloud_tts(text, target_code, payload.style)
-    return Response(content=audio_bytes, media_type="audio/mpeg")
+    
+    # Normalize text specifically for TTS so it doesn't pause awkwardly on random line breaks
+    import re
+    text = re.sub(r'(?<!\n)\n(?!\n)', ' ', text)
+    
+    voice_name = SPEAK_VOICE_MAP.get(target_code)
+    if not voice_name:
+        raise HTTPException(
+            status_code=422,
+            detail=f"No configured voice for '{target_code}'.",
+        )
+        
+    return StreamingResponse(
+        synthesize_edge_tts_stream(text, voice_name, payload.style), 
+        media_type="audio/mpeg"
+    )
 
 
 @app.post("/api/extract-text")
@@ -696,6 +689,11 @@ async def extract_text(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Failed to extract text from file.") from exc
 
     extracted = extracted.strip()
+    
+    import re
+    # Fix PDF extraction issues by replacing single newlines with spaces, keeping double for paragraphs
+    extracted = re.sub(r'(?<!\n)\n(?!\n)', ' ', extracted)
+    
     if not extracted:
         raise HTTPException(status_code=422, detail="No readable text found in the file.")
     return {"text": extracted}
