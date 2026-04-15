@@ -41,7 +41,7 @@ const refs = {
   startBtn: document.getElementById("startBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
 };
-const API_BASE = "https://naunce-4wqsob18g-syedarif3126-8192s-projects.vercel.app";
+const API_BASE = window.location.origin;
 
 
 const currentUser = localStorage.getItem("naunce_current_user");
