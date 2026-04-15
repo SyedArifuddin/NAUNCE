@@ -1,6 +1,6 @@
 const AUTH_CURRENT_KEY = "naunce_current_user";
 const AUTH_TOKEN_KEY = "naunce_access_token";
-const API_BASE = window.location.origin;
+const API_BASE = "";
 
 
 

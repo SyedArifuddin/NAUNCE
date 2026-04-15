@@ -41,7 +41,7 @@ const refs = {
   startBtn: document.getElementById("startBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
 };
-const API_BASE = window.location.origin;
+const API_BASE = "";
 
 
 const currentUser = localStorage.getItem("naunce_current_user");
