@@ -220,7 +220,12 @@ def init_db():
 
 @app.on_event("startup")
 def on_startup():
-    init_db()
+    try:
+        init_db()
+        print("Database initialized successfully.")
+    except Exception as exc:
+        print(f"Database initialization failed: {exc}")
+        # We don't re-raise here so the app can still start and serve /health
 
 
 def create_access_token(subject: str) -> str:
