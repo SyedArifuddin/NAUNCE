@@ -277,12 +277,17 @@ def health():
     peek = ""
     if db_url:
         peek = f"{db_url[:5]}...{db_url[-5:]}" if len(db_url) > 10 else "too short"
+    
+    # Safely list all environment variable names to find the missing one
+    env_keys = list(os.environ.keys())
+    
     return {
         "status": "ok", 
         "service": "naunce-api",
         "database_configured": bool(db_url),
         "db_url_length": len(db_url),
-        "db_url_peek": peek
+        "db_url_peek": peek,
+        "available_env_keys": env_keys
     }
 
 
