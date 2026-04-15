@@ -18,7 +18,12 @@ from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, Field
 from pypdf import PdfReader
 
-load_dotenv()
+# Load environment variables from .env file
+env_path = os.path.join(os.path.dirname(__file__), '.env')
+if os.path.exists(env_path):
+    load_dotenv(env_path)
+else:
+    load_dotenv() # Fallback for Vercel
 
 app = FastAPI(title="NAUNCE API", version="0.1.0")
 
