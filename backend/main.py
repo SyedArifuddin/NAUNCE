@@ -34,9 +34,12 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 security = HTTPBearer()
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-DATABASE_URL = os.getenv("DATABASE_URL", "")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+# We will fetch these dynamically in the functions to ensure Vercel's latest config is picked up
+def get_db_url():
+    return os.getenv("DATABASE_URL", "")
+
+def get_gemini_key():
+    return os.getenv("GEMINI_API_KEY", "")
 
 
 class RegisterPayload(BaseModel):
@@ -179,9 +182,10 @@ def resolve_language_code(language_input: str) -> str:
 
 
 def get_db_connection():
-    if not DATABASE_URL:
-        raise HTTPException(status_code=500, detail="DATABASE_URL is missing")
-    return psycopg2.connect(DATABASE_URL)
+    db_url = get_db_url()
+    if not db_url:
+        raise HTTPException(status_code=500, detail="DATABASE_URL is missing in environment")
+    return psycopg2.connect(db_url)
 
 
 def init_db():
@@ -257,10 +261,12 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
 @app.get("/health")
 def health():
+    db_url = get_db_url()
     return {
         "status": "ok", 
         "service": "naunce-api",
-        "database_configured": bool(DATABASE_URL)
+        "database_configured": bool(db_url),
+        "db_url_length": len(db_url)
     }
 
 
@@ -306,7 +312,8 @@ def login(payload: LoginPayload):
 
 @app.post("/api/analyze")
 async def analyze(payload: AnalyzePayload, user=Depends(get_current_user)):
-    if not GEMINI_API_KEY:
+    api_key = get_gemini_key()
+    if not api_key:
         # Fallback to lite logic if key is missing
         text = payload.text.lower()
         score = max(40, min(95, 64 + (8 if "please" in text else -7)))
@@ -337,8 +344,9 @@ async def analyze(payload: AnalyzePayload, user=Depends(get_current_user)):
     }
 
     try:
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
         async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(GEMINI_URL, json=body)
+            resp = await client.post(gemini_url, json=body)
         if not resp.is_success:
             raise HTTPException(status_code=502, detail="AI Analysis failed")
         
@@ -413,7 +421,8 @@ def dashboard(user=Depends(get_current_user)):
 
 @app.post("/api/chat")
 async def chat(payload: ChatPayload, user=Depends(get_current_user)):
-    if not GEMINI_API_KEY:
+    api_key = get_gemini_key()
+    if not api_key:
         raise HTTPException(status_code=500, detail="Gemini API key not configured on server.")
 
     system_prompt = (
@@ -444,8 +453,9 @@ async def chat(payload: ChatPayload, user=Depends(get_current_user)):
     }
 
     try:
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
         async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.post(GEMINI_URL, json=body)
+            resp = await client.post(gemini_url, json=body)
         if not resp.is_success:
             err = resp.json().get("error", {}).get("message", "Gemini API error")
             raise HTTPException(status_code=502, detail=err)
