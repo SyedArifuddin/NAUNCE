@@ -1,6 +1,16 @@
 const AUTH_CURRENT_KEY = "naunce_current_user";
 const AUTH_TOKEN_KEY = "naunce_access_token";
-const API_BASE = "";
+const DEFAULT_API_BASE = "http://127.0.0.1:8000";
+const API_BASE = (() => {
+  if (window.location.protocol === "file:") return DEFAULT_API_BASE;
+  if (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") {
+    if (window.location.port === "8000" || window.location.port === "") {
+      return window.location.origin;
+    }
+  }
+  return DEFAULT_API_BASE;
+})();
+
 
 
 

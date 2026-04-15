@@ -374,10 +374,23 @@ async def analyze(payload: AnalyzePayload, user=Depends(get_current_user)):
         gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(gemini_url, json=body)
+            
         if not resp.is_success:
-            raise HTTPException(status_code=502, detail="AI Analysis failed")
+            print(f"Gemini API returned {resp.status_code}: {resp.text}")
+            raise Exception(f"AI API failed with status {resp.status_code}")
         
         data = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+        
+        # Clean potential markdown JSON wrapping
+        data = data.strip()
+        if data.startswith("```json"):
+            data = data[7:]
+        elif data.startswith("```"):
+            data = data[3:]
+        if data.endswith("```"):
+            data = data[:-3]
+        data = data.strip()
+        
         import json
         analysis = json.loads(data)
 
@@ -394,7 +407,22 @@ async def analyze(payload: AnalyzePayload, user=Depends(get_current_user)):
             "markers": analysis.get("markers", []),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-        
+    except Exception as exc:
+        print(f"Fallback. AI analysis exception: {str(exc)}")
+        # Fallback to lite logic if AI fails (e.g. rate limit / quota exceeded)
+        text_lower = payload.text.lower()
+        score = max(40, min(95, 64 + (8 if "please" in text_lower else -7)))
+        response = {
+            "user": user["email"],
+            "adaptability_score": score,
+            "literal_translation": ["AI quota reached or unavailable. Using offline lite analysis."],
+            "emotional_tone": {"respect": 65, "urgency": 45, "warmth": 55},
+            "cultural_context": "Lite mode active. The detailed context requires AI server availability. Please try again in a few moments.",
+            "markers": ["offline-analysis", "fallback"],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    try:
         import json
         with get_db_connection() as conn:
             with conn.cursor() as cur:
@@ -413,9 +441,10 @@ async def analyze(payload: AnalyzePayload, user=Depends(get_current_user)):
                     )
                 )
                 conn.commit()
-        return response
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"AI analysis error: {str(exc)}")
+    except Exception as db_exc:
+        print(f"Failed to save analysis to DB: {db_exc}")
+        
+    return response
 
 
 @app.get("/api/dashboard")
@@ -484,14 +513,22 @@ async def chat(payload: ChatPayload, user=Depends(get_current_user)):
         async with httpx.AsyncClient(timeout=20.0) as client:
             resp = await client.post(gemini_url, json=body)
         if not resp.is_success:
-            err = resp.json().get("error", {}).get("message", "Gemini API error")
-            raise HTTPException(status_code=502, detail=err)
-        data = resp.json()
-        reply = data["candidates"][0]["content"]["parts"][0]["text"]
-    except HTTPException:
-        raise
+            print(f"Chat API failed: {resp.status_code} {resp.text}")
+            reply = "I'm currently resting due to high usage in the API. Please try asking me again in a few moments!"
+        else:
+            data = resp.json()
+            reply = data["candidates"][0]["content"]["parts"][0]["text"]
+            
+            # Remove any markdown block wrapping if present
+            reply = reply.strip()
+            if reply.startswith("```"):
+                lines = reply.split("\n")
+                if len(lines) > 2 and lines[0].startswith("```") and lines[-1].startswith("```"):
+                    reply = "\n".join(lines[1:-1]).strip()
+                    
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"AI service error: {str(exc)}") from exc
+        print(f"Chat failure: {exc}")
+        reply = "I'm currently resting due to high usage in the API. Please try asking me again in a few moments!"
 
     item = {
         "user": user["email"],

@@ -41,8 +41,19 @@ const refs = {
   startBtn: document.getElementById("startBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
 };
-const API_BASE = "";
+const DEFAULT_API_BASE = "http://127.0.0.1:8000";
+const API_BASE = (() => {
+  if (window.location.protocol === "file:") return DEFAULT_API_BASE;
+  if (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") {
+    if (window.location.port === "8000" || window.location.port === "") {
+      return window.location.origin;
+    }
+    return DEFAULT_API_BASE;
+  }
+  return "";
+})();
 
+console.log("NAUNCE frontend starting. API_BASE=", API_BASE);
 
 const currentUser = localStorage.getItem("naunce_current_user");
 const accessToken = localStorage.getItem("naunce_access_token");
@@ -50,6 +61,22 @@ if (!currentUser || !accessToken) {
   window.location.href = "./index.html";
 }
 
+function setProcessing(isProcessing) {
+  if (!refs.processingDot || !refs.analyzeBtn) return;
+  refs.processingDot.textContent = isProcessing ? "Analyzing…" : "Idle";
+  refs.analyzeBtn.disabled = Boolean(isProcessing);
+}
+
+function renderScore(score) {
+  if (!refs.ringProgress || !refs.scoreText) return;
+  const normalized = Math.min(100, Math.max(0, Number(score) || 0));
+  const radius = 72;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (circumference * normalized) / 100;
+  refs.ringProgress.style.strokeDasharray = `${circumference} ${circumference}`;
+  refs.ringProgress.style.strokeDashoffset = `${offset}`;
+  refs.scoreText.textContent = `${Math.round(normalized)}`;
+}
 
 function autoResize() {
   refs.inputText.style.height = "auto";
@@ -93,6 +120,72 @@ function updateInputDetectionStatus() {
   } else {
     refs.translateStatus.textContent = "Enter or paste text to enable translation.";
   }
+}
+
+function addChatMessage(role, message) {
+  if (refs.translateStatus) {
+    refs.translateStatus.textContent = message;
+  }
+  console.log(`[${role}] ${message}`);
+}
+
+function renderLiteral(items) {
+  if (!refs.literalList) return;
+  refs.literalList.innerHTML = "";
+  if (!Array.isArray(items) || items.length === 0) {
+    const listItem = document.createElement("li");
+    listItem.textContent = "No literal translation risks detected.";
+    refs.literalList.appendChild(listItem);
+    return;
+  }
+  items.forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = typeof item === "string" ? item : item.description || JSON.stringify(item);
+    refs.literalList.appendChild(li);
+  });
+}
+
+function renderEmotions(emotions) {
+  if (!refs.emotionWheel || !refs.emotionSummary) return;
+  refs.emotionWheel.innerHTML = "";
+  if (!Array.isArray(emotions) || emotions.length === 0) {
+    refs.emotionSummary.textContent = "No emotional tone detected yet.";
+    return;
+  }
+
+  const parts = emotions.map((entry) => {
+    const value = Number(entry.value) || 0;
+    const chip = document.createElement("span");
+    chip.className = "emotion-chip";
+    chip.textContent = `${entry.label}: ${Math.round(value)}%`;
+    chip.style.opacity = Math.min(1, Math.max(0.3, value / 100 + 0.2));
+    refs.emotionWheel.appendChild(chip);
+    return `${entry.label} ${Math.round(value)}%`;
+  });
+  refs.emotionSummary.textContent = parts.join(" · ");
+}
+
+function renderSafetyDistribution(safety) {
+  if (!refs.safeBar || !refs.cautionBar || !refs.riskBar || !refs.safePct || !refs.cautionPct || !refs.riskPct) return;
+  const safe = Math.max(0, Math.min(100, Number(safety.safe) || 0));
+  const caution = Math.max(0, Math.min(100, Number(safety.caution) || 0));
+  const risk = Math.max(0, Math.min(100, Number(safety.risk) || 0));
+  refs.safeBar.style.width = `${safe}%`;
+  refs.cautionBar.style.width = `${caution}%`;
+  refs.riskBar.style.width = `${risk}%`;
+  refs.safePct.textContent = `${Math.round(safe)}%`;
+  refs.cautionPct.textContent = `${Math.round(caution)}%`;
+  refs.riskPct.textContent = `${Math.round(risk)}%`;
+}
+
+function renderFingerprint(values) {
+  if (!refs.clarityVal || !refs.inclusiveVal || !refs.respectVal || !refs.warmthVal || !refs.harmVal) return;
+  const safeNumber = (value) => `${Math.round(Math.max(0, Math.min(100, Number(value) || 0)))}%`;
+  refs.clarityVal.textContent = safeNumber(values.clarity);
+  refs.inclusiveVal.textContent = safeNumber(values.inclusiveness);
+  refs.respectVal.textContent = safeNumber(values.respect);
+  refs.warmthVal.textContent = safeNumber(values.warmth);
+  refs.harmVal.textContent = safeNumber(values.harmRisk);
 }
 
 let currentAudio = null;
@@ -171,8 +264,8 @@ async function speakText(text, label, languageOverride) {
 async function checkBackendConnection() {
   if (!refs.translateStatus) return;
   
-  // Inform user we are checking
-  const originalStatus = refs.translateStatus.textContent;
+  const healthUrl = API_BASE ? `${API_BASE}/health` : "/health";
+  console.log("Checking backend health at", healthUrl);
   refs.translateStatus.textContent = "Connecting to backend...";
 
   try {
@@ -180,7 +273,7 @@ async function checkBackendConnection() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
     
-    const response = await fetch(`${API_BASE}/health`, { 
+    const response = await fetch(healthUrl, { 
       method: "GET",
       signal: controller.signal 
     });
@@ -188,17 +281,17 @@ async function checkBackendConnection() {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      refs.translateStatus.textContent = "Backend connected with errors. Please check logs.";
+      refs.translateStatus.textContent = `Backend responded with ${response.status}. Please check backend or API_BASE=${API_BASE}`;
       setVoiceSourceStatus(false);
       return;
     }
-    refs.translateStatus.textContent = "Backend active. All systems online.";
+    refs.translateStatus.textContent = `Backend active at ${healthUrl}. All systems online.`;
     setVoiceSourceStatus(true);
   } catch (error) {
     if (error.name === "AbortError") {
       refs.translateStatus.textContent = "Backend is taking a while to wake up. Please wait...";
     } else {
-      refs.translateStatus.textContent = "Backend unreachable. If testing locally, ensure backend is running.";
+      refs.translateStatus.textContent = `Backend unreachable at ${API_BASE || 'same origin'}. If testing locally, ensure backend is running.`;
     }
     setVoiceSourceStatus(false);
   }
@@ -239,70 +332,108 @@ function resolveTargetLanguage() {
   return fromDropdown;
 }
 
+// ... existing state and refs definitions ...
+
 async function runAnalysis() {
+  console.log("runAnalysis called");
   const text = getBestAvailableInputText();
+  console.log("text:", text);
+  
   if (!text) {
+    console.log("No text found");
+    if (refs.translateStatus) {
+      refs.translateStatus.textContent = "Please paste text into the input area before analyzing.";
+    }
     addChatMessage("bot", "Paste a message first so I can evaluate cultural signals.");
     return;
   }
 
+  console.log("Starting analysis");
+  // Visual feedback: Start processing
   setProcessing(true);
+  if (refs.translateStatus) {
+    refs.translateStatus.textContent = "Starting cultural DNA analysis…";
+  }
+
   try {
     const response = await fetch(`${API_BASE}/api/analyze`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
+        // Crucial: Sending the JWT token for authentication
+        "Authorization": `Bearer ${accessToken}`, 
       },
       body: JSON.stringify({ text }),
     });
 
     if (!response.ok) {
-      throw new Error("Analysis failed");
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Server error: ${response.status}`);
     }
 
     const result = await response.json();
-    state.text = text;
-    state.score = result.adaptability_score;
-    state.context = result.cultural_context;
-    state.markers = result.markers;
 
-    // Map backend response to UI format
+    // 1. Update State
+    state.text = text;
+    state.score = result.adaptability_score || 0;
+    state.context = result.cultural_context || "No context provided.";
+
+    // 2. Render Literal Translation Risks
     renderLiteral(result.literal_translation || []);
     
+    // 3. Render Emotional Tone (Respect, Warmth, Urgency)
+    // Ensuring we handle cases where the backend might return null/undefined
+    const tone = result.emotional_tone || { respect: 0, warmth: 0, urgency: 0 };
     const uiEmotions = [
-      { label: "Respect", value: result.emotional_tone.respect },
-      { label: "Warmth", value: result.emotional_tone.warmth },
-      { label: "Urgency", value: result.emotional_tone.urgency },
+      { label: "Respect", value: tone.respect },
+      { label: "Warmth", value: tone.warmth },
+      { label: "Urgency", value: tone.urgency },
     ];
     renderEmotions(uiEmotions);
     
-    refs.contextSummary.textContent = result.cultural_context;
-    renderScore(result.adaptability_score);
+    // 4. Update Cultural Context Summary
+    if (refs.contextSummary) {
+      refs.contextSummary.textContent = result.cultural_context || "Analysis complete.";
+    }
+
+    // 5. Update the Animated Score Ring
+    renderScore(result.adaptability_score || 0);
     
-    // Safety distribution estimation
+    // 6. Safety Distribution (Dynamic calculation based on Urgency/Harm)
+    // This fills the Safe/Caution/Risk bars in your dashboard
+    const urgency = Number(tone.urgency) || 0;
     const safety = {
-        safe: Math.max(0, 100 - result.emotional_tone.urgency * 0.5),
-        caution: result.emotional_tone.urgency * 0.3,
-        risk: result.emotional_tone.urgency * 0.2
+        safe: Math.max(0, 100 - (urgency * 1.2)),
+        caution: Math.min(100, urgency * 0.8),
+        risk: Math.min(100, urgency * 0.4)
     };
     renderSafetyDistribution(safety);
     
+    // 7. Update Communication Fingerprint
     renderFingerprint({
-        clarity: 85,
-        inclusiveness: 78,
-        respect: result.emotional_tone.respect,
-        warmth: result.emotional_tone.warmth,
-        harmRisk: result.emotional_tone.urgency * 0.4
+        clarity: result.clarity || 85, // Defaulting to 85 if not provided
+        inclusiveness: result.inclusiveness || 80,
+        respect: tone.respect,
+        warmth: tone.warmth,
+        harmRisk: urgency
     });
 
+    if (refs.translateStatus) {
+      refs.translateStatus.textContent = "Analysis complete. DNA decoded.";
+    }
+
   } catch (error) {
-    console.error(error);
-    addChatMessage("bot", "I couldn't complete the AI analysis. Please check your connection.");
+    console.error("Analysis Error:", error);
+    if (refs.translateStatus) {
+      refs.translateStatus.textContent = `Analysis failed: ${error.message}`;
+    }
+    addChatMessage("bot", "I couldn't complete the AI analysis. Please check your backend connection.");
   } finally {
     setProcessing(false);
   }
 }
+
+// ... rest of your existing file ...
 
 function handleFile(file) {
   if (!file) return;
@@ -401,18 +532,25 @@ async function runTranslation() {
   }
 }
 
-refs.inputText.addEventListener("input", () => {
-  state.lastInputText = getNormalizedInputText();
-  autoResize();
-  updateInputDetectionStatus();
-});
+if (refs.inputText) {
+  refs.inputText.addEventListener("input", () => {
+    state.lastInputText = getNormalizedInputText();
+    autoResize();
+    updateInputDetectionStatus();
+  });
+}
 if (refs.targetLanguage && refs.customLang) {
   refs.targetLanguage.addEventListener("change", () => {
     refs.customLang.value = "";
     updateInputDetectionStatus();
   });
 }
-refs.analyzeBtn.addEventListener("click", runAnalysis);
+if (refs.analyzeBtn) {
+  console.log("Adding event listener to analyzeBtn");
+  refs.analyzeBtn.addEventListener("click", runAnalysis);
+} else {
+  console.log("analyzeBtn not found");
+}
 if (refs.translateBtn && refs.translateStatus) {
   refs.translateBtn.addEventListener("click", () => {
     refs.translateStatus.textContent = "Translate button clicked...";
